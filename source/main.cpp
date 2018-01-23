@@ -28,10 +28,8 @@
 #include "patchcode.h"
 #include "memory.h"
 #include "menu.h"
-#include "utils.h"
 #include "disc.h"
 #include "wdvd.h"
-#include "gecko.h"
 #include "defines.h"
 #include "fst.h"
 
@@ -54,7 +52,6 @@ int main()
         write32(0xd8006a0, 0x30000004), mask32(0xd8006a8, 0, 2);
     }
 
-    InitGecko();
     printf("MinimaLauncher v1.2\n");
     VIDEO_Init();
     WPAD_Init();

@@ -6,9 +6,7 @@
 #include "apploader.h"
 #include "wdvd.h"
 #include "patchcode.h"
-#include "wip.h"
 #include "fst.h"
-#include "gecko.h"
 #include "memory.h"
 
 /* Apploader function pointers */
@@ -25,8 +23,6 @@ static const char *GameID = (const char*)0x80000000;
 #define APPLDR_OFFSET    0x910
 #define APPLDR_CODE        0x918
 
-static void PrinceOfPersiaPatch();
-static void NewSuperMarioBrosPatch();
 static bool Remove_001_Protection(void *Address, int Size);
 bool hookpatched = false;
 
@@ -42,9 +38,6 @@ static struct
 
 u32 Apploader_Run(void)
 {
-    PrinceOfPersiaPatch();
-    NewSuperMarioBrosPatch();
-
     void *dst = NULL;
     int len = 0;
     int offset = 0;
@@ -80,13 +73,12 @@ u32 Apploader_Run(void)
     appldr_entry(&appldr_init, &appldr_main, &appldr_final);
 
     /* Initialize apploader */
-    appldr_init(gprintf);
+    appldr_init(printf);
 
     while(appldr_main(&dst, &len, &offset))
     {
         /* Read data from DVD */
         WDVD_Read(dst, len, offset);
-        do_wip_code((u8 *)dst, len);
         if(hooktype != 0 && hookpatched == false)
             hookpatched = dogamehooks(dst, len, false);
         DCFlushRange(dst, len);
@@ -94,82 +86,12 @@ u32 Apploader_Run(void)
         Remove_001_Protection(dst, len);
         Https_Patch(dst, len);
     }
-    free_wip();
     if(hooktype != 0 && hookpatched)
         ocarina_do_code();
 
     /* Set entry point from apploader */
     return (u32)appldr_final();
 }
-
-static void PrinceOfPersiaPatch()
-{
-    if(memcmp("SPX", GameID, 3) != 0 && memcmp("RPW", GameID, 3) != 0)
-        return;
-
-    WIP_Code CodeList[5];
-    CodeList[0].offset = 0x007AAC6A;
-    CodeList[0].srcaddress = 0x7A6B6F6A;
-    CodeList[0].dstaddress = 0x6F6A7A6B;
-    CodeList[1].offset = 0x007AAC75;
-    CodeList[1].srcaddress = 0x7C7A6939;
-    CodeList[1].dstaddress = 0x69397C7A;
-    CodeList[2].offset = 0x007AAC82;
-    CodeList[2].srcaddress = 0x7376686B;
-    CodeList[2].dstaddress = 0x686B7376;
-    CodeList[3].offset = 0x007AAC92;
-    CodeList[3].srcaddress = 0x80717570;
-    CodeList[3].dstaddress = 0x75708071;
-    CodeList[4].offset = 0x007AAC9D;
-    CodeList[4].srcaddress = 0x82806F3F;
-    CodeList[4].dstaddress = 0x6F3F8280;
-    set_wip_list(CodeList, 5);
-}
-
-static void NewSuperMarioBrosPatch()
-{
-    WIP_Code CodeList[3];
-    if(memcmp("SMNE01", GameID, 6) == 0)
-    {
-        CodeList[0].offset = 0x001AB610;
-        CodeList[0].srcaddress = 0x9421FFD0;
-        CodeList[0].dstaddress = 0x4E800020;
-        CodeList[1].offset = 0x001CED53;
-        CodeList[1].srcaddress = 0xDA000000;
-        CodeList[1].dstaddress = 0x71000000;
-        CodeList[2].offset = 0x001CED6B;
-        CodeList[2].srcaddress = 0xDA000000;
-        CodeList[2].dstaddress = 0x71000000;
-        set_wip_list(CodeList, 3);
-    }
-    else if(memcmp("SMNP01", GameID, 6) == 0)
-    {
-        CodeList[0].offset = 0x001AB750;
-        CodeList[0].srcaddress = 0x9421FFD0;
-        CodeList[0].dstaddress = 0x4E800020;
-        CodeList[1].offset = 0x001CEE90;
-        CodeList[1].srcaddress = 0x38A000DA;
-        CodeList[1].dstaddress = 0x38A00071;
-        CodeList[2].offset = 0x001CEEA8;
-        CodeList[2].srcaddress = 0x388000DA;
-        CodeList[2].dstaddress = 0x38800071;
-        set_wip_list(CodeList, 3);
-    }
-    else if(memcmp("SMNJ01", GameID, 6) == 0)
-    {
-        CodeList[0].offset = 0x001AB420;
-        CodeList[0].srcaddress = 0x9421FFD0;
-        CodeList[0].dstaddress = 0x4E800020;
-        CodeList[1].offset = 0x001CEB63;
-        CodeList[1].srcaddress = 0xDA000000;
-        CodeList[1].dstaddress = 0x71000000;
-        CodeList[2].offset = 0x001CEB7B;
-        CodeList[2].srcaddress = 0xDA000000;
-        CodeList[2].dstaddress = 0x71000000;
-        set_wip_list(CodeList, 3);
-    }
-}
-
 static bool Remove_001_Protection(void *Address, int Size)
 {
     static const u8 SearchPattern[] = {0x40, 0x82, 0x00, 0x0C, 0x38, 0x60, 0x00, 0x01, 0x48, 0x00, 0x02, 0x44, 0x38, 0x61, 0x00, 0x18};

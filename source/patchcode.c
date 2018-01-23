@@ -27,7 +27,6 @@
 #include "apploader.h"
 #include "patchcode.h"
 #include "memory.h"
-#include "gecko.h"
 
 u32 hooktype = 0x07;
 u8 configbytes[2];
@@ -177,24 +176,6 @@ bool dogamehooks(void *addr, u32 len, bool channel)
 
     while(addr_start < addr_end)
     {
-        // switch (hooktype)
-        // {
-        //     case 0x6:
-        //         if(memcmp(addr_start, ossleepthreadhooks, sizeof(ossleepthreadhooks))==0)
-        //         {
-        //             patchhook((u32)addr_start, len);
-        //             hookpatched = true;
-        //         }
-        //         break;
-
-        //     case 0x7:
-        //         if(memcmp(addr_start, axnextframehooks, sizeof(axnextframehooks))==0)
-        //         {
-        //             patchhook((u32)addr_start, len);
-        //             hookpatched = true;
-        //         }
-        //         break;
-        // }
         if(memcmp(addr_start, axnextframehooks, sizeof(axnextframehooks))==0)
         {
             patchhook((u32)addr_start, len);
@@ -263,7 +244,7 @@ bool PatchReturnTo( void *Address, int Size, u32 id )
 {
     if( !id || returnToPatched )
         return 0;
-    //gprintf("PatchReturnTo( %p, %08x, %08x )\n", Address, Size, id );
+    //printf("PatchReturnTo( %p, %08x, %08x )\n", Address, Size, id );
 
     //new __OSLoadMenu() (SM2.0 and higher)
     u8 SearchPattern[ 12 ] =     { 0x38, 0x80, 0x00, 0x02, 0x38, 0x60, 0x00, 0x01, 0x38, 0xa0, 0x00, 0x00 }; //li r4,2
@@ -332,7 +313,7 @@ bool PatchReturnTo( void *Address, int Size, u32 id )
     //if the function is found
     if( found == 3 && ad[ 3 ] )
     {
-        gprintf("patch __OSLaunchMenu( 0x00010001, 0x%08x )\n", id);
+        printf("patch __OSLaunchMenu( 0x00010001, 0x%08x )\n", id);
         u32 nop = 0x60000000;
 
         //the magic that writes the TID to the registers
@@ -363,7 +344,7 @@ bool PatchReturnTo( void *Address, int Size, u32 id )
         addr = (u32*)ad[ 0 ];
         memcpy( addr, &newval, sizeof( u32 ) );                    //bl ad[ 3 ]
         memcpy( addr + 4, &nop, sizeof( u32 ) );                //nop
-        //gprintf("\t%08x -> %08x\n", addr, newval );
+        //printf("\t%08x -> %08x\n", addr, newval );
 
         //ES_GetTicketViews() again
         newval = ( ad[ 3 ] - ad[ 1 ] );
@@ -372,7 +353,7 @@ bool PatchReturnTo( void *Address, int Size, u32 id )
         addr = (u32*)ad[ 1 ];
         memcpy( addr, &newval, sizeof( u32 ) );                    //bl ad[ 3 ]
         memcpy( addr + 4, &nop, sizeof( u32 ) );                //nop
-        //gprintf("\t%08x -> %08x\n", addr, newval );
+        //printf("\t%08x -> %08x\n", addr, newval );
 
         //ES_LaunchTitle()
         newval = ( ad[ 3 ] - ad[ 2 ] );
@@ -381,7 +362,7 @@ bool PatchReturnTo( void *Address, int Size, u32 id )
         addr = (u32*)ad[ 2 ];
         memcpy( addr, &newval, sizeof( u32 ) );                    //bl ad[ 3 ]
         memcpy( addr + 4, &nop, sizeof( u32 ) );                //nop
-        //gprintf("\t%08x -> %08x\n", addr, newval );
+        //printf("\t%08x -> %08x\n", addr, newval );
 
         returnToPatched = 1;
     }
@@ -540,12 +521,12 @@ void PatchRegion(void *Address, int Size)
     {
         if(!memcmp(addr_start, sig_setting, sizeof(sig_setting)))
         {
-            gprintf("Patching setting region\n");
+            printf("Patching setting region\n");
             memcpy(addr_start, patch_setting, sizeof(patch_setting));
         }
         if(!memcmp(addr_start, sig_SYSCONF, sizeof(sig_SYSCONF)))
         {
-            gprintf("Patching SYSCONF region\n");
+            printf("Patching SYSCONF region\n");
             memcpy(addr_start, patch_SYSCONF, sizeof(patch_SYSCONF));
         }
         addr_start += 4;
