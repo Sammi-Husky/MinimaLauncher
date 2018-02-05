@@ -29,9 +29,12 @@
 #include "memory.h"
 #include "menu.h"
 #include "disc.h"
+#include "utils/video.h"
 #include "wdvd.h"
 #include "defines.h"
 #include "fst.h"
+#include "Utils/FreeTypeGX.h"
+#include "utils/filelist.h"
 
 /* Boot Variables */
 u32 GameIOS = 0;
@@ -53,14 +56,13 @@ int main()
     }
 
     printf("MinimaLauncher v1.2\n");
-    VIDEO_Init();
+    InitVideo();
     WPAD_Init();
     PAD_Init();
-    // sleep(1);
+    InitFreeType((u8*)font_mwerks_ttf, font_mwerks_ttf_size);
+    InitGUIThreads();
 
-    // while (1) {
-    //     draw_menu();
-    // }
+    draw_menu();
 
     /* Setup Low Memory */
     Disc_SetLowMemPre();

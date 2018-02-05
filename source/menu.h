@@ -6,10 +6,30 @@ extern "C" {
 #endif
 
 // Globals
-extern u8 menu_number;
+extern u8 currentMenu;
+extern const char * descriptionText;
+
+enum {
+    MENU_NONE,
+    MENU_ROOT,
+    MENU_UPDATE,
+    MENU_CHANGE_VERSION,
+    MENU_SETTINGS,
+    MENU_EXIT,
+    MENU_LAUNCH
+};
 
 // Function prototypes
 void draw_menu();
+void InitGUIThreads();
+void ResumeGui();
+void HaltGui();
+
+u8 MenuRoot();
+u8 MenuUpdate();
+u8 MenuChangeVersion();
+u8 MenuSettings();
+u8 MenuRoot();
 
 #ifdef __cplusplus
 }

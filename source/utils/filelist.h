@@ -15,6 +15,12 @@
 extern const u8		font_ttf[];
 extern const u32	font_ttf_size;
 
+extern const u8		font_nevis_ttf[];
+extern const u32	font_nevis_ttf_size;
+
+extern const u8		font_mwerks_ttf[];
+extern const u32	font_mwerks_ttf_size;
+
 // Languages
 extern const u8		en_lang[];
 extern const u32	en_lang_size;
@@ -30,8 +36,20 @@ extern const u8		button_click_pcm[];
 extern const u32	button_click_pcm_size;
 
 // Images
+extern const u8		background_png[];
+extern const u32	background_png_size;
+
 extern const u8		button_png[];
 extern const u32	button_png_size;
+
+extern const u8		button_png[];
+extern const u32	button_png_size;
+
+extern const u8		button_left_png[];
+extern const u32	button_png_left_size;
+
+extern const u8		button_right_png[];
+extern const u32	button_right_png_size;
 
 extern const u8		button_over_png[];
 extern const u32	button_over_png_size;
@@ -125,5 +143,11 @@ extern const u32	player3_grab_png_size;
 
 extern const u8		player4_grab_png[];
 extern const u32	player4_grab_png_size;
+
+extern const u8		rect_desc_png[];
+extern const u32	rect_desc_png_size;
+
+extern const u8		rect_details_png[];
+extern const u32	rect_details_png_size;
 
 #endif

@@ -17,7 +17,8 @@ include $(DEVKITPPC)/wii_rules
 #---------------------------------------------------------------------------------
 TARGET		:=	ProjectSuperAwesome
 BUILD		:=	build
-SOURCES		:=	source source/libwiigui source/utils
+SOURCES		:=	source source/libwiigui source/utils source/fonts source/images
+                    
 INCLUDES	:=	source
 
 #---------------------------------------------------------------------------------
@@ -107,7 +108,7 @@ clean:
 
 #---------------------------------------------------------------------------------
 run:
-	wiiload $(OUTPUT).dol
+	D:\Gameplay\emulators\Wii\Dolphin\Latest\Dolphin.exe -d $(OUTPUT).elf
 
 #---------------------------------------------------------------------------------
 reload:
