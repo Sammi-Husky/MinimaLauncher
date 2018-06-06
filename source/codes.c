@@ -25,18 +25,13 @@
 #include <sys/unistd.h>
 #include <ogc/ipc.h>
 #include <malloc.h>
-#include "fst.h"
+#include "codes.h"
 #include "memory.h"
 #include "patchcode.h"
 #include "codehandler.h"
 #include "codehandleronly.h"
 #include "multidol.h"
-
-#define FSTDIRTYPE 1
-#define FSTFILETYPE 0
-#define ENTRYSIZE 0xC
-
-#define MAX_FILENAME_LEN    128
+#include "wdvd.h"
 
 u8 *codelistend = NULL;
 void *codelist = NULL;
@@ -44,19 +39,51 @@ void *codelist = NULL;
 u32 gameconfsize = 0;
 u32 *gameconf = NULL;
 
-u8 debuggerselect = 0;
+u8 *code_buf = NULL;
+u32 code_size = 0;
 
-extern const u32 viwiihooks[4];
-extern const u32 kpadhooks[4];
-extern const u32 joypadhooks[4];
-extern const u32 gxdrawhooks[4];
-extern const u32 gxflushhooks[4];
-extern const u32 ossleepthreadhooks[4];
 extern const u32 axnextframehooks[4];
-extern const u32 wpadbuttonsdownhooks[4];
-extern const u32 wpadbuttonsdown2hooks[4];
 
-int app_gameconfig_load(const char *discid, u8 *tempgameconf, u32 tempgameconfsize)
+void load_gameconfig(const char *path){
+    FILE *f = NULL;
+    size_t fsize = 0;
+
+    WDVD_ReadDiskId((u8*)Disc_ID);
+
+    f = fopen(path, "rb");
+    if(f != NULL)
+    {
+        fseek(f, 0, SEEK_END);
+        fsize = ftell(f);
+        rewind(f);
+        u8 *gameconfig = (u8*)malloc(fsize);
+        fread(gameconfig, fsize, 1, f);
+        fclose(f);
+        do_gameconfig((char*)Disc_ID, gameconfig, fsize);
+        free(gameconfig);
+    }
+}
+
+void load_gct(const char *path){
+    FILE *f = NULL;
+    size_t fsize = 0;
+    printf("%s\n", path);
+    f = fopen(path, "rb");
+    if(f != NULL)
+    {
+        printf("Opened gct\n");
+        fseek(f, 0, SEEK_END);
+        fsize = ftell(f);
+        rewind(f);
+        u8 *cheats = (u8*)malloc(fsize);
+        fread(cheats, fsize, 1, f);
+        fclose(f);
+        set_codes((void*)0x800022A8, (u8*)0x80003000, cheats, fsize);
+        free(cheats);
+    }
+}
+
+int do_gameconfig(const char *discid, u8 *tempgameconf, u32 tempgameconfsize)
 {
     if (gameconf == NULL)
     {
@@ -242,42 +269,13 @@ int app_gameconfig_load(const char *discid, u8 *tempgameconf, u32 tempgameconfsi
     return 0;
 }
 
-void app_gameconfig_set(u32 *gameconfig, u32 tempgameconfsize)
+void gameconfig_set(u32 *gameconfig, u32 tempgameconfsize)
 {
     if(gameconfig == NULL)
         return;
     gameconfsize = tempgameconfsize;
     gameconf = malloc(gameconfsize); //internal copy
     memcpy(gameconf, gameconfig, gameconfsize);
-}
-
-u8 *code_buf = NULL;
-u32 code_size = 0;
-
-void ocarina_set_codes(void *list, u8 *listend, u8 *cheats, u32 cheatSize)
-{
-    if(codelist == NULL)
-        codelist = list;
-    if(codelistend == NULL)
-        codelistend = listend;
-    if(cheatSize <= 0 || cheats == NULL)
-    {
-        printf("Ocarina: No codes found\n");
-        code_buf = NULL;
-        code_size = 0;
-        return;
-    }
-    if (cheatSize > (u32)codelistend - (u32)codelist)
-    {
-        printf("Ocarina: Too many codes found.\n");
-        code_buf = NULL;
-        code_size = 0;
-        return;
-    }
-    code_size = cheatSize;
-    code_buf = malloc(code_size); //internal copy
-    memcpy(code_buf, cheats, code_size);
-    printf("Ocarina: Codes found.\n");
 }
 
 void app_pokevalues()
@@ -351,28 +349,41 @@ void load_handler()
     DCFlushRange((void*)0x80001000, multidol_size);
     ICInvalidateRange((void*)0x80001000, multidol_size);
 
-    // Do AXNextFrame hooks
-    // switch (hooktype)
-    // {
-    //     case 0x6:
-    //         memcpy((void*)0x8000119C,ossleepthreadhooks,12);
-    //         memcpy((void*)0x80001198,ossleepthreadhooks+3,4);
-    //         break;
-
-    //     case 0x7:
-    //         memcpy((void*)0x8000119C,axnextframehooks,12);
-    //         memcpy((void*)0x80001198,axnextframehooks+3,4);
-    //         break;
-    // }
+    // Load AXNextFrame Hooks
     memcpy((void*)0x8000119C,axnextframehooks,12);
     memcpy((void*)0x80001198,axnextframehooks+3,4);
     DCFlushRange((void*)0x80001198, 16);
     ICInvalidateRange((void*)0x80001198, 16);
 }
 
-int ocarina_do_code()
+void set_codes(void *list, u8 *listend, u8 *cheats, u32 cheatSize)
 {
-    // if (!code_buf) return 0;  // Need the handler loaded for hooking other than cheats!
+    if(codelist == NULL)
+        codelist = list;
+    if(codelistend == NULL)
+        codelistend = listend;
+    if(cheatSize <= 0 || cheats == NULL)
+    {
+        printf("Ocarina: No codes found\n");
+        code_buf = NULL;
+        code_size = 0;
+        return;
+    }
+    if (cheatSize > (u32)codelistend - (u32)codelist)
+    {
+        printf("Ocarina: Too many codes found.\n");
+        code_buf = NULL;
+        code_size = 0;
+        return;
+    }
+    code_size = cheatSize;
+    code_buf = malloc(code_size); //internal copy
+    memcpy(code_buf, cheats, code_size);
+    printf("Ocarina: Codes found.\n");
+}
+
+int do_codes()
+{
     load_handler();
 
     if(codelist)

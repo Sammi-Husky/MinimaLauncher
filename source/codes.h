@@ -26,14 +26,14 @@
 extern "C" {
 #endif
 
-extern u8 debuggerselect;
-
 #define MAX_GCT_SIZE 2056
 
-int app_gameconfig_load(const char *discid, u8 *tempgameconf, u32 tempgameconfsize);
-void app_gameconfig_set(u32 *gameconfig, u32 tempgameconfsize);
-void ocarina_set_codes(void *list, u8 *listend, u8 *cheats, u32 cheatSize);
-int ocarina_do_code();
+void load_gameconfig(const char *path);
+int do_gameconfig(const char *discid, u8 *tempgameconf, u32 tempgameconfsize);
+void gameconfig_set(u32 *gameconfig, u32 tempgameconfsize);
+void load_gct(const char *path);
+void set_codes(void *list, u8 *listend, u8 *cheats, u32 cheatSize);
+int do_codes();
 
 #ifdef __cplusplus
 }

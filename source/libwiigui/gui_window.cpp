@@ -99,6 +99,7 @@ void GuiWindow::Draw()
 		return;
 
 	u32 elemSize = _elements.size();
+    _elements[0]->Draw();
 	for (u32 i = 0; i < elemSize; ++i)
 	{
 		try	{ _elements.at(i)->Draw(); }
@@ -303,7 +304,7 @@ void GuiWindow::MoveSelectionHor(int dir)
 		top = _elements.at(selected)->GetTop();
 	}
 
-	
+
 	// look for a button on the same row, to the left/right
 	for (i = 0; i < elemSize; ++i)
 	{

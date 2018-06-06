@@ -5,14 +5,30 @@
 #include <unistd.h>
 #include <malloc.h>
 #include <ogc/lwp_watchdog.h>
+#include <fat.h>
+#include <sdcard/wiisd_io.h>
 
+#include "apploader.h"
+#include "codes.h"
 #include "disc.h"
 #include "memory.h"
+#include "defines.h"
 #include "types.h"
 #include "wdvd.h"
+#include "patchcode.h"
 
 struct discHdr wii_hdr ATTRIBUTE_ALIGN(32);
 struct gc_discHdr gc_hdr ATTRIBUTE_ALIGN(32);
+
+/* Boot Variables */
+u32 GameIOS = 0;
+u32 vmode_reg = 0;
+GXRModeObj *vmode = NULL;
+
+u32 AppEntrypoint = 0;
+
+extern void __exception_closeall();
+extern void __exception_setreload(int t);
 
 /* Constants */
 #define PART_INFO_OFFSET    0x10000
@@ -27,6 +43,114 @@ s32 Disc_Open()
     /* Read disc ID */
     ret = WDVD_ReadDiskId((u8*)Disc_ID);
     return ret;
+}
+
+void Disc_Boot(){
+    /* Setup Low Memory */
+    Disc_SetLowMemPre();
+
+    /* Get Disc Status */
+    WDVD_Init();
+    u32 disc_check = 0;
+    WDVD_GetCoverStatus(&disc_check);
+    if(disc_check & 0x2)
+    {
+        /* Open up Disc */
+        Disc_Open();
+        if(Disc_IsWii() == 0)
+        {
+
+            /* read in cheats */
+            WDVD_ReadDiskId((u8*)Disc_ID);
+            const DISC_INTERFACE *sd = &__io_wiisd;
+
+            sd->startup();
+            fatMountSimple("sd",sd);
+
+            load_gameconfig("sd:/gameconfig.txt");
+            char gamepath[22];
+            sprintf(gamepath, "sd:/codes/%.6s.gct", (char*)Disc_ID);
+            load_gct(gamepath);
+
+
+            fatUnmount("sd");
+            sd->shutdown();
+
+            /* Find our Partition */
+            u32 offset = 0;
+            Disc_FindPartition(&offset);
+            WDVD_OpenPartition(offset, &GameIOS);
+            printf("Using IOS: %i\n", GameIOS);
+            WDVD_Close();
+
+            IOS_ReloadIOS(58); //for SDHC support
+
+            /* Re-Init after IOS Reload */
+            WDVD_Init();
+            WDVD_ReadDiskId((u8*)Disc_ID);
+            WDVD_OpenPartition(offset, &GameIOS);
+
+            /* Run Apploader */
+            AppEntrypoint = Apploader_Run();
+            printf("Entrypoint: %08x\n", AppEntrypoint);
+            WDVD_Close();
+
+            /* Setup Low Memory */
+            Disc_SetLowMem(GameIOS);
+
+            /* Set an appropriate video mode */
+            vmode = Disc_SelectVMode(&vmode_reg);
+            Disc_SetVMode(vmode, vmode_reg);
+
+            /* Set time */
+            Disc_SetTime();
+
+            /* Shutdown IOS subsystems */
+            u32 level = IRQ_Disable();
+            __IOS_ShutdownSubsystems();
+            __exception_closeall();
+
+            /* Originally from tueidj - taken from NeoGamma (thx) */
+            *(vu32*)0xCC003024 = 1;
+
+            /* Boot no hook*/
+            if(hooktype == 0)
+            {
+                asm volatile (
+                    "lis %r3, AppEntrypoint@h\n"
+                    "ori %r3, %r3, AppEntrypoint@l\n"
+                    "lwz %r3, 0(%r3)\n"
+                    "mtlr %r3\n"
+                    "blr\n"
+                );
+            }
+            else
+            {
+                /* Run codehandler and then return to app entry */
+                asm volatile(
+                    "lis %r3, AppEntrypoint@h\n"
+                    "ori %r3, %r3, AppEntrypoint@l\n"
+                    "lwz %r3, 0(%r3)\n"
+                    "mtlr %r3\n"
+                    "lis %r3, 0x8000\n"
+                    "ori %r3, %r3, 0x18A8\n"
+                    "mtctr %r3\n"
+                    "bctr\n"
+                );
+            }
+            /* Fail */
+            IRQ_Restore(level);
+        }
+    }
+    /* Fail, init chan launching */
+    WII_Initialize();
+    /* goto HBC */
+    WII_LaunchTitle(HBC_LULZ);
+    WII_LaunchTitle(HBC_108);
+    WII_LaunchTitle(HBC_JODI);
+    WII_LaunchTitle(HBC_HAXX);
+    /* Fail, goto System Menu */
+    WII_LaunchTitle(SYSTEM_MENU);
 }
 
 void Disc_SetLowMemPre()

@@ -15,7 +15,7 @@
 #include "libwiigui/gui.h"
 #include "utils/filelist.h"
 
-#define THREAD_SLEEP 100
+#define THREAD_SLEEP 60
 
 #define BOUNDS_TOP 240
 //#define BOUNDS_BOTTOM
@@ -23,23 +23,31 @@
 #define BOUNDS_RIGHT 375
 //#define BOUNDS_BOTTOM
 
-GuiImage * bgImg = NULL;
-GuiSound * bgMusic = NULL;
-GuiWindow * mainWindow = NULL;
+GuiImage *bgImg = NULL;
+GuiSound *bgMusic = NULL;
+GuiWindow *mainWindow = NULL;
 
-const char * descriptionText = "Some Example Text";
+const char *descriptionText = "Some Example Text";
+const char *selectedVersion = "Unknown";
 
 u8 currentMenu = MENU_ROOT;
 lwp_t guithread = LWP_THREAD_NULL;
 bool guiHalt = true;
 
-void
-draw_menu()
+void draw_menu()
 {
     mainWindow = new GuiWindow(screenwidth, screenheight);
-
     bgImg = new GuiImage(new GuiImageData(background_png));
     mainWindow->Append(bgImg);
+
+
+    //Draws background and fades in from black
+    for(int i = 255; i >= 0; i -= 7)
+    {
+        mainWindow->Draw();
+        Menu_DrawRectangle(0,0,screenwidth, screenheight,(GXColor){0, 0, 0, (u8)i}, 1);
+        Menu_Render();
+    }
 
     GuiText descTxt(descriptionText, 18, (GXColor){255, 255, 255, 255});
     GuiWindow descWindow(566, 47);
@@ -48,18 +56,10 @@ draw_menu()
     descWindow.Append(new GuiImage(new GuiImageData(rect_desc_png)));
     descWindow.SetAlignment(ALIGN_CENTRE, ALIGN_BOTTOM);
     descWindow.SetPosition(0, -18);
+
     descWindow.Append(&descTxt);
-
-
-    // Draws background and fades in from black
-    for(int i = 255; i >= 0; i -= 7)
-    {
-        mainWindow->Draw();
-        Menu_DrawRectangle(0,0,screenwidth, screenheight,(GXColor){0, 0, 0, i}, 1);
-        Menu_Render();
-    }
-    ResumeGui();
     mainWindow->Append(&descWindow);
+    ResumeGui();
 
     while (currentMenu != MENU_EXIT)
     {
@@ -83,13 +83,12 @@ draw_menu()
     }
 }
 
-u8
-MenuRoot(){
+int MenuRoot()
+{
     int selected_menu = MENU_NONE;
 
     GuiImageData btnLeft(button_left_png);
     GuiImageData btnRight(button_right_png);
-
 
     GuiButton versionsBtn(btnRight.GetWidth(), btnRight.GetHeight());
     GuiImage versionsBtnImg(&btnRight);
@@ -101,9 +100,6 @@ MenuRoot(){
     versionsBtn.SetPosition(BOUNDS_RIGHT, BOUNDS_TOP);
     versionsBtn.SetLabel(&versionsBtnTxt);
     versionsBtn.SetImage(&versionsBtnImg);
-    // versionsBtn.SetImageOver(&versionsBtnImgOver);
-    // versionsBtn.SetSoundOver(&btnSoundOver);
-    // versionsBtn.SetTrigger(&trigA);
     versionsBtn.SetEffectGrow();
 
     GuiButton exitBtn(btnRight.GetWidth(), btnRight.GetHeight());
@@ -112,48 +108,39 @@ MenuRoot(){
     exitBtnTxt.SetPosition(22, -10);
     exitBtnTxt.SetAlignment(ALIGN_LEFT, ALIGN_MIDDLE);
     exitBtnTxt.SetWrap(true, btnRight.GetWidth()-30);
-	exitBtn.SetAlignment(ALIGN_LEFT, ALIGN_TOP);
-	exitBtn.SetPosition(BOUNDS_RIGHT, BOUNDS_TOP + versionsBtn.GetHeight() + 40);
-	exitBtn.SetLabel(&exitBtnTxt);
-	exitBtn.SetImage(&exitBtnImg);
-	// exitBtn.SetImageOver(&exitBtnImgOver);
-	// exitBtn.SetSoundOver(&btnSoundOver);
-	// exitBtn.SetTrigger(&trigA);
-	exitBtn.SetEffectGrow();
+    exitBtn.SetAlignment(ALIGN_LEFT, ALIGN_TOP);
+    exitBtn.SetPosition(BOUNDS_RIGHT, BOUNDS_TOP + versionsBtn.GetHeight() + 40);
+    exitBtn.SetLabel(&exitBtnTxt);
+    exitBtn.SetImage(&exitBtnImg);
+    exitBtn.SetEffectGrow();
 
     GuiButton playBtn(btnLeft.GetWidth(), btnLeft.GetHeight());
     GuiImage playBtnImg(&btnLeft);
     GuiText playBtnTxt("Play", 50, (GXColor){255, 255, 255, 255});
-    playBtnTxt.SetPosition(-22, -10);
+    playBtnTxt.SetPosition(-32, -10);
     playBtnTxt.SetAlignment(ALIGN_RIGHT, ALIGN_MIDDLE);
     playBtnTxt.SetWrap(true, btnLeft.GetWidth()-30);
     playBtn.SetAlignment(ALIGN_LEFT, ALIGN_TOP);
     playBtn.SetPosition(0, BOUNDS_TOP);
     playBtn.SetLabel(&playBtnTxt);
     playBtn.SetImage(&playBtnImg);
-    // exitBtn.SetImageOver(&exitBtnImgOver);
-    // exitBtn.SetSoundOver(&btnSoundOver);
-    // exitBtn.SetTrigger(&trigA);
     playBtn.SetEffectGrow();
 
     GuiButton settingsBtn(btnLeft.GetWidth(), btnLeft.GetHeight());
     GuiImage settingsBtnImg(&btnLeft);
     GuiText settingsBtnTxt("Settings", 50, (GXColor){255, 255, 255, 255});
-    settingsBtnTxt.SetPosition(-22, -10);
+    settingsBtnTxt.SetPosition(-32, -10);
     settingsBtnTxt.SetAlignment(ALIGN_RIGHT, ALIGN_MIDDLE);
     settingsBtnTxt.SetWrap(true, btnLeft.GetWidth()-30);
     settingsBtn.SetAlignment(ALIGN_LEFT, ALIGN_TOP);
     settingsBtn.SetPosition(0, BOUNDS_TOP + playBtn.GetHeight() + 40);
     settingsBtn.SetLabel(&settingsBtnTxt);
     settingsBtn.SetImage(&settingsBtnImg);
-    // exitBtn.SetImageOver(&exitBtnImgOver);
-    // exitBtn.SetSoundOver(&btnSoundOver);
-    // exitBtn.SetTrigger(&trigA);
     settingsBtn.SetEffectGrow();
 
-    HaltGui();
-
     GuiWindow w(screenwidth, screenheight);
+
+    HaltGui();
     w.Append(&exitBtn);
     w.Append(&versionsBtn);
     w.Append(&playBtn);
@@ -165,35 +152,43 @@ MenuRoot(){
 
     while (selected_menu == MENU_NONE)
     {
-        usleep(THREAD_SLEEP);
-
+        VIDEO_WaitVSync();
+        if(playBtn.GetState() == STATE_CLICKED)
+        {
+            selected_menu = MENU_LAUNCH;
+        }
         if(exitBtn.GetState() == STATE_CLICKED)
         {
-            selected_menu = MENU_SETTINGS;
+            selected_menu = MENU_EXIT;
         }
         if(versionsBtn.GetState() == STATE_CLICKED)
         {
-            selected_menu = MENU_LAUNCH;
+            selected_menu = MENU_CHANGE_VERSION;
+        }
+        if(settingsBtn.GetState() == STATE_CLICKED)
+        {
+            selected_menu = MENU_SETTINGS;
         }
     }
 
     HaltGui();
     mainWindow->Remove(&w);
+    ResumeGui();
     return selected_menu;
 }
 
-u8
-MenuUpdate(){
+int MenuUpdate()
+{
     return 0;
 }
 
-u8
-MenuChangeVersion(){
+int MenuChangeVersion()
+{
     return 0;
 }
 
-u8
-MenuSettings(){
+int MenuSettings()
+{
     return 0;
 }
 
@@ -203,24 +198,23 @@ MenuSettings(){
  * Primary thread to allow GUI to respond to state changes, and draws GUI
  ***************************************************************************/
 
-void *
-UpdateGUI (void *arg)
+void * UpdateGUI (void *arg)
 {
+    int i;
 	while(1)
 	{
 		if(guiHalt)
-		{
 			LWP_SuspendThread(guithread);
-		}
-		else
-		{
-            UpdatePads();
-			mainWindow->Draw();
-			Menu_Render();
 
-            for(int i=0; i < 4; i++)
-				mainWindow->Update(&userInput[i]);
-		}
+        UpdatePads();
+		mainWindow->Draw();
+		Menu_Render();
+
+        for(i=0; i < 4; i++)
+			mainWindow->Update(&userInput[i]);
+
+        usleep(THREAD_SLEEP);
+
 	}
 	return NULL;
 }
@@ -230,8 +224,7 @@ UpdateGUI (void *arg)
  *
  * Startup GUI threads
  ***************************************************************************/
-void
-InitGUIThreads()
+void InitGUIThreads()
 {
 	LWP_CreateThread (&guithread, UpdateGUI, NULL, NULL, 0, 70);
 }
@@ -243,11 +236,10 @@ InitGUIThreads()
  * after finishing the removal/insertion of new elements, and after initial
  * GUI setup.
  ***************************************************************************/
-void
-ResumeGui()
+void ResumeGui()
 {
-	guiHalt = false;
-	LWP_ResumeThread (guithread);
+    guiHalt = false;
+    LWP_ResumeThread (guithread);
 }
 
 /****************************************************************************
@@ -258,9 +250,11 @@ ResumeGui()
  * This eliminates the possibility that the GUI is in the middle of accessing
  * an element that is being changed.
  ***************************************************************************/
-void
-HaltGui()
+void HaltGui()
 {
+    if(guiHalt)
+        return;
+
 	guiHalt = true;
 
 	// wait for thread to finish

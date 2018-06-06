@@ -70,12 +70,13 @@ struct gc_discHdr
 
     /* Game title */
     char title[64];
-    
+
     /* Padding */
     u8 unused2[64];
 } ATTRIBUTE_PACKED;
 
 s32 Disc_Open();
+void Disc_Boot();
 s32 Disc_FindPartition(u32 *outbuf);
 void Disc_SetLowMemPre();
 void Disc_SetLowMem(u32 IOS);

@@ -1,3 +1,4 @@
+#include "libwiigui/gui.h"
 #ifndef __MENU_H__
 #define __MENU_H__
 
@@ -6,6 +7,7 @@ extern "C" {
 #endif
 
 // Globals
+extern GuiWindow *mainWindow;
 extern u8 currentMenu;
 extern const char * descriptionText;
 
@@ -25,11 +27,11 @@ void InitGUIThreads();
 void ResumeGui();
 void HaltGui();
 
-u8 MenuRoot();
-u8 MenuUpdate();
-u8 MenuChangeVersion();
-u8 MenuSettings();
-u8 MenuRoot();
+int MenuRoot();
+int MenuUpdate();
+int MenuChangeVersion();
+int MenuSettings();
+int MenuRoot();
 
 #ifdef __cplusplus
 }

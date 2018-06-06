@@ -6,7 +6,7 @@
 #include "apploader.h"
 #include "wdvd.h"
 #include "patchcode.h"
-#include "fst.h"
+#include "codes.h"
 #include "memory.h"
 
 /* Apploader function pointers */
@@ -87,7 +87,7 @@ u32 Apploader_Run(void)
         Https_Patch(dst, len);
     }
     if(hooktype != 0 && hookpatched)
-        ocarina_do_code();
+        do_codes();
 
     /* Set entry point from apploader */
     return (u32)appldr_final();

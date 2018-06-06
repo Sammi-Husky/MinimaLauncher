@@ -17,14 +17,14 @@
 #include "input.h"
 #include "libwiigui/gui.h"
 
-#define DEFAULT_FIFO_SIZE 256 * 1024
-static void *xfb[2] = { NULL, NULL }; // Double buffered
+#define GP_FIFO_SIZE (256 * 1024 * 3)
+static unsigned int *xfb[2] = { NULL, NULL }; // Double buffered
 static int whichfb = 0; // Switch
 static GXRModeObj *vmode; // Menu video mode
-static unsigned char gp_fifo[DEFAULT_FIFO_SIZE] ATTRIBUTE_ALIGN (32);
+static unsigned char *gp_fifo = NULL;
 static Mtx GXmodelView2D;
-int screenheight;
-int screenwidth;
+int screenheight = 480;
+int screenwidth = 640;
 u32 FrameTimer = 0;
 
 /****************************************************************************
@@ -82,15 +82,15 @@ ResetVideo_Menu()
 
 	GX_SetNumChans(1);
 	GX_SetNumTexGens(1);
-	GX_SetTevOp (GX_TEVSTAGE0, GX_PASSCLR);
+	GX_SetTevOp (GX_TEVSTAGE0, GX_MODULATE);
 	GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0);
 	GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);
 
 	guMtxIdentity(GXmodelView2D);
-	guMtxTransApply (GXmodelView2D, GXmodelView2D, 0.0F, 0.0F, -50.0F);
+	guMtxTransApply (GXmodelView2D, GXmodelView2D, 0.0F, 0.0F, -200.0F);
 	GX_LoadPosMtxImm(GXmodelView2D,GX_PNMTX0);
 
-	guOrtho(p,0,479,0,639,0,300);
+	guOrtho(p,0,screenheight-1,0,screenwidth-1,0,300);
 	GX_LoadProjectionMtx(p, GX_ORTHOGRAPHIC);
 
 	GX_SetViewport(0,0,vmode->fbWidth,vmode->efbHeight,0,1);
@@ -108,49 +108,59 @@ ResetVideo_Menu()
 void
 InitVideo ()
 {
-	VIDEO_Init();
+    VIDEO_Init();
+
+	vmode = VIDEO_GetPreferredMode(NULL); // get default video mode
+
+	vmode->viWidth = (CONF_GetAspectRatio() == CONF_ASPECT_16_9) ? 708 : 694;
+    VIDEO_Init();
 	vmode = VIDEO_GetPreferredMode(NULL); // get default video mode
 
 	// widescreen fix
 	if(CONF_GetAspectRatio() == CONF_ASPECT_16_9)
 		vmode->viWidth = VI_MAX_WIDTH_PAL;
 
-	VIDEO_Configure (vmode);
+    // Ported bit from USBLoaderGX
+	if ((CONF_GetVideo() == CONF_VIDEO_PAL) && (CONF_GetEuRGB60() == 0))
+	{
+		vmode->viXOrigin = (VI_MAX_WIDTH_PAL - vmode->viWidth) / 2;
+	}
+	else
+	{
+		vmode->viXOrigin = (VI_MAX_WIDTH_NTSC - vmode->viWidth) / 2;
+	}
+
+	VIDEO_Configure(vmode);
 
 	screenheight = 480;
-	screenwidth = 640;
+	screenwidth = vmode->fbWidth;
 
 	// Allocate the video buffers
-	xfb[0] = SYS_AllocateFramebuffer (vmode);
-	xfb[1] = SYS_AllocateFramebuffer (vmode);
-	DCInvalidateRange(xfb[0], VIDEO_GetFrameBufferSize(vmode));
-	DCInvalidateRange(xfb[1], VIDEO_GetFrameBufferSize(vmode));
-	xfb[0] = MEM_K0_TO_K1 (xfb[0]);
-	xfb[1] = MEM_K0_TO_K1 (xfb[1]);
-
-	// A console is always useful while debugging
-	console_init (xfb[0], 20, 64, vmode->fbWidth, vmode->xfbHeight, vmode->fbWidth * 2);
+	xfb[0] = (unsigned int *) MEM_K0_TO_K1 ( SYS_AllocateFramebuffer ( vmode ) );
+	xfb[1] = (unsigned int *) MEM_K0_TO_K1 ( SYS_AllocateFramebuffer ( vmode ) );
 
 	// Clear framebuffers etc.
-	VIDEO_ClearFrameBuffer (vmode, xfb[0], COLOR_BLACK);
-	VIDEO_ClearFrameBuffer (vmode, xfb[1], COLOR_BLACK);
-	VIDEO_SetNextFramebuffer (xfb[0]);
+	VIDEO_ClearFrameBuffer(vmode, xfb[0], COLOR_BLACK);
+	VIDEO_ClearFrameBuffer(vmode, xfb[1], COLOR_BLACK);
+	VIDEO_SetNextFramebuffer(xfb[0]);
 
-	VIDEO_SetBlack (FALSE);
-	VIDEO_Flush ();
-	VIDEO_WaitVSync ();
+	VIDEO_Flush();
+	VIDEO_WaitVSync();
 	if (vmode->viTVMode & VI_NON_INTERLACE)
-		VIDEO_WaitVSync ();
+		VIDEO_WaitVSync();
 
 	// Initialize GX
 	GXColor background = { 0, 0, 0, 0xff };
-	memset (&gp_fifo, 0, DEFAULT_FIFO_SIZE);
-	GX_Init (&gp_fifo, DEFAULT_FIFO_SIZE);
+	gp_fifo = (u8 *) memalign(32, GP_FIFO_SIZE);
+	memset (gp_fifo, 0, GP_FIFO_SIZE);
+	GX_Init (gp_fifo, GP_FIFO_SIZE);
 	GX_SetCopyClear (background, 0x00ffffff);
 	GX_SetDispCopyGamma (GX_GM_1_0);
 	GX_SetCullMode (GX_CULL_NONE);
 
 	ResetVideo_Menu();
+
+	VIDEO_SetBlack(FALSE);
 	// Finally, the video is up and ready for use :)
 }
 
